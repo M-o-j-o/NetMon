@@ -1,0 +1,40 @@
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus_netmon
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:11.5.8
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+    environment:
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+    volumes:
+      - ./grafana.ini:/etc/grafana/grafana.ini
+      - grafana_data:/var/lib/grafana
+
+  node_exporter:
+    image: prom/node-exporter:latest
+    container_name: node_exporter_netmon
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+
+networks:
+  monitoring:
+
+volumes:
+  grafana_data:
