@@ -4,7 +4,7 @@ from influxdb_client import InfluxDBClient, Point, WritePrecision
 
 # InfluxDB config
 INFLUX_URL = "http://localhost:8086"
-INFLUX_TOKEN = "9PEAb8NyeThtMIXAWmuEvteKJPH_BRlRACe2H8k1LePi7Qt0wZd-cirpW-s0uo5qPZa1hkfR06w_Q9nJ8CeUSQ=="
+INFLUX_TOKEN = ""
 INFLUX_ORG = "mojosec"
 INFLUX_BUCKET = "NetMon"
 
