@@ -1,363 +1,1362 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-    <div>
-        <h1 class="text-2xl font-bold">Network Dashboard</h1>
-        <p class="text-muted-foreground">Real-time monitoring and system overview</p>
-    </div>
-    <div class="flex items-center gap-4">
-        <a href="/devices" class="btn btn-secondary">
-            <i class="fas fa-server"></i>
-            Manage Devices
-        </a>
-        <button class="btn btn-primary" onclick="refreshDashboard()">
-            <i class="fas fa-sync-alt"></i>
-            Refresh
-        </button>
-    </div>
-</div>
-
- Alert Banner 
-{% if alerts %}
-<div class="mb-6">
-    {% for alert in alerts %}
-    <div class="alert alert-{{ alert.severity }}">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <i class="fas fa-exclamation-triangle"></i>
-                <div>
-                    <strong>{{ alert.device }}</strong>: {{ alert.message }}
-                    <div class="text-xs" style="margin-top: 0.25rem; opacity: 0.8;">
-                        {{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
-                    </div>
-                </div>
-            </div>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-{% endif %}
-
- Time Range Selector 
-<div class="flex items-center justify-between mb-6">
-    <div class="nav-tabs">
-        <button class="nav-tab active" data-tab="overview">Overview</button>
-        <button class="nav-tab" data-tab="compute">Compute</button>
-        <button class="nav-tab" data-tab="network">Network</button>
-        <button class="nav-tab" data-tab="storage">Storage</button>
-    </div>
-    
-    <div class="flex items-center gap-4">
-        <select id="timeRange" class="btn btn-secondary" style="background-color: var(--secondary);">
-            <option value="1h">Last 1 hour</option>
-            <option value="6h">Last 6 hours</option>
-            <option value="12h" selected>Last 12 hours</option>
-            <option value="24h">Last 24 hours</option>
-            <option value="7d">Last 7 days</option>
-        </select>
-        <button class="btn btn-primary" onclick="refreshDashboard()">
-            <i class="fas fa-sync-alt"></i>
-            Refresh
-        </button>
-    </div>
-</div>
-
- System Overview Cards 
-<div class="grid grid-cols-4 mb-6">
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">CPU Usage</div>
-            <i class="fas fa-microchip" style="color: var(--chart-1);"></i>
-        </div>
-        <div class="metric-value">{{ metrics.cpu_usage }}%</div>
-        <div class="metric-change positive">
-            <i class="fas fa-arrow-down"></i> 2.3% from last hour
-        </div>
-    </div>
-    
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">Memory Usage</div>
-            <i class="fas fa-memory" style="color: var(--chart-2);"></i>
-        </div>
-        <div class="metric-value">{{ metrics.memory_usage }}%</div>
-        <div class="metric-change negative">
-            <i class="fas fa-arrow-up"></i> 5.1% from last hour
-        </div>
-    </div>
-    
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">Network In</div>
-            <i class="fas fa-download" style="color: var(--chart-3);"></i>
-        </div>
-        <div class="metric-value">{{ metrics.network_in }}</div>
-        <div class="metric-label">MB/s</div>
-    </div>
-    
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">Network Out</div>
-            <i class="fas fa-upload" style="color: var(--chart-4);"></i>
-        </div>
-        <div class="metric-value">{{ metrics.network_out }}</div>
-        <div class="metric-label">MB/s</div>
-    </div>
-</div>
-
- Main Content Grid 
-<div class="grid grid-cols-2 mb-6">
-     System Metrics Chart 
-    <div class="card" style="height: 320px; min-height: 320px;">
-        <div class="card-header">
-            <div class="card-title">System Performance</div>
+<div class="min-h-screen bg-gray-900 text-white">
+     Header Section with Grafana-style layout 
+    <div class="flex items-center justify-between mb-6 p-4 bg-gray-800 border-b border-gray-700">
+        <div class="flex items-center gap-4">
             <div class="flex items-center gap-2">
-                <span class="status-indicator status-healthy">
-                    <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
-                    Healthy
-                </span>
+                <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                    <i class="fas fa-server text-white text-sm"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white">Server Health</h1>
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-400">
+                <span>Instance:</span>
+                <select class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-white">
+                    <option>r0fd73ec</option>
+                </select>
             </div>
         </div>
-        <div style="height: 220px;">
-            <canvas id="systemChart" style="width:100%; height:100%;"></canvas>
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 text-sm text-gray-400">
+                <i class="fas fa-clock"></i>
+                <span>Last 24 hours</span>
+            </div>
+            <button class="flex items-center gap-2 px-3 py-1 bg-gray-700 text-white border border-gray-600 rounded hover:bg-gray-600 transition-colors">
+                <i class="fas fa-sync-alt"></i>
+                <span>Refresh</span>
+            </button>
+            <div class="flex items-center gap-1 text-sm">
+                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span class="text-green-500">Live</span>
+            </div>
         </div>
     </div>
-    
-     Device Status 
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">Device Status</div>
-            <div class="text-sm" style="color: var(--muted-foreground);">
-                {{ devices|selectattr('status', 'equalto', 'healthy')|list|length }}/{{ devices|length }} devices healthy
-            </div>
-        </div>
-        <div style="max-height: 300px; overflow-y: auto;">
-            {% for device in devices %}
-            <div class="flex items-center justify-between" style="padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
-                <div class="flex items-center gap-4">
-                    <div class="status-indicator status-{{ device.status }}">
-                        <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
-                    </div>
+
+     Alert Banner 
+    {% if alerts %}
+    <div class="mb-6 px-4">
+        {% for alert in alerts %}
+        <div class="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-3" id="alert-{{ loop.index }}">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-exclamation-triangle text-red-400"></i>
                     <div>
-                        <div class="font-medium">{{ device.name }}</div>
-                        <div class="text-sm" style="color: var(--muted-foreground);">{{ device.ip }}</div>
+                        <strong class="text-red-200">{{ alert.device }}</strong>
+                        <span class="text-red-300">: {{ alert.message }}</span>
+                        <div class="text-xs text-red-400 mt-1">
+                            {{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                        </div>
                     </div>
                 </div>
-                <div class="text-sm">
-                    {% if device.response_time > 0 %}
-                        {{ device.response_time }}ms
-                    {% else %}
-                        <span style="color: var(--destructive);">Offline</span>
-                    {% endif %}
+                <button class="text-red-400 hover:text-red-200" onclick="dismissAlert('alert-{{ loop.index }}')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="px-4">
+         Basic CPU / Mem / Disk Gauge Section 
+        <div class="mb-6">
+            <div class="flex items-center gap-2 mb-4 cursor-pointer" onclick="toggleSection('basic-gauges')">
+                <i class="fas fa-chevron-down text-gray-400 transition-transform" id="basic-gauges-icon"></i>
+                <h2 class="text-lg font-semibold text-white">Basic CPU / Mem / Disk Gauge</h2>
+            </div>
+            
+            <div id="basic-gauges-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                 CPU Busy Gauge 
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">CPU Busy</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="relative w-24 h-24 mx-auto mb-2">
+                        <canvas id="cpuGauge" width="96" height="96"></canvas>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-white" id="cpu-percentage">1.5%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-center text-green-500">Normal</div>
+                </div>
+
+                 Used RAM Memory Gauge 
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">Used RAM Memory</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="relative w-24 h-24 mx-auto mb-2">
+                        <canvas id="memoryGauge" width="96" height="96"></canvas>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-white" id="memory-percentage">16%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-center text-green-500">Normal</div>
+                </div>
+
+                 Used SWAP Gauge 
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">Used SWAP</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="relative w-24 h-24 mx-auto mb-2">
+                        <canvas id="swapGauge" width="96" height="96"></canvas>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-white" id="swap-percentage">N/A</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-center text-gray-400">No swap</div>
+                </div>
+
+                 Used Root FS Gauge 
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">Used Root FS</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="relative w-24 h-24 mx-auto mb-2">
+                        <canvas id="diskGauge" width="96" height="96"></canvas>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-white" id="disk-percentage">46%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-center text-green-500">Normal</div>
+                </div>
+
+                 CPU System Load Gauges 
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">CPU System Load (1m avg)</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="relative w-24 h-24 mx-auto mb-2">
+                        <canvas id="load1mGauge" width="96" height="96"></canvas>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-white" id="load1m-percentage">1.5%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-center text-green-500">Normal</div>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">CPU System Load (5m avg)</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="relative w-24 h-24 mx-auto mb-2">
+                        <canvas id="load5mGauge" width="96" height="96"></canvas>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="text-lg font-bold text-white" id="load5m-percentage">1%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-center text-green-500">Normal</div>
                 </div>
             </div>
-            {% endfor %}
+        </div>
+
+         Basic CPU / Mem / Disk Info Section 
+        <div class="mb-6">
+            <div class="flex items-center gap-2 mb-4 cursor-pointer" onclick="toggleSection('basic-info')">
+                <i class="fas fa-chevron-down text-gray-400 transition-transform" id="basic-info-icon"></i>
+                <h2 class="text-lg font-semibold text-white">Basic CPU / Mem / Disk Info</h2>
+            </div>
+            
+            <div id="basic-info-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">CPU Cores</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-white text-center py-4">2</div>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">Total RAM</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-white text-center py-4">3.79 GiB</div>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">Total SWAP</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-white text-center py-4">0 B</div>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">Total RootFS</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-white text-center py-4">7.69 GiB</div>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">System Load (1m avg)</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-white text-center py-4">0.03</div>
+                </div>
+
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-gray-400">Uptime</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-white text-center py-4">1.1 days</div>
+                </div>
+            </div>
+        </div>
+
+         Basic CPU / Mem Graph Section 
+        <div class="mb-6">
+            <div class="flex items-center gap-2 mb-4 cursor-pointer" onclick="toggleSection('basic-graphs')">
+                <i class="fas fa-chevron-down text-gray-400 transition-transform" id="basic-graphs-icon"></i>
+                <h2 class="text-lg font-semibold text-white">Basic CPU / Mem Graph</h2>
+            </div>
+            
+            <div id="basic-graphs-content" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                 CPU Basic Chart 
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-medium text-gray-400">CPU Basic</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="cpuBasicChart"></canvas>
+                    </div>
+                </div>
+
+                 Memory Basic Chart 
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-medium text-gray-400">Memory Basic</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="memoryBasicChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+         Basic Net / Disk Info Section 
+        <div class="mb-6">
+            <div class="flex items-center gap-2 mb-4 cursor-pointer" onclick="toggleSection('net-disk-info')">
+                <i class="fas fa-chevron-down text-gray-400 transition-transform" id="net-disk-info-icon"></i>
+                <h2 class="text-lg font-semibold text-white">Basic Net / Disk Info</h2>
+            </div>
+            
+            <div id="net-disk-info-content" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                 Network Traffic Chart 
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-medium text-gray-400">Network Traffic Basic</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="networkTrafficChart"></canvas>
+                    </div>
+                </div>
+
+                 Disk Space Chart 
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-medium text-gray-400">Disk Space Used Basic</h3>
+                        <i class="fas fa-info-circle text-gray-400 text-xs"></i>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="diskSpaceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+         Device Management Section 
+        <div class="mb-6">
+            <div class="flex items-center gap-2 mb-4 cursor-pointer" onclick="toggleSection('device-management')">
+                <i class="fas fa-chevron-down text-gray-400 transition-transform" id="device-management-icon"></i>
+                <h2 class="text-lg font-semibold text-white">Device Management</h2>
+            </div>
+            
+            <div id="device-management-content">
+                <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-4">
+                            <div class="text-sm text-gray-400">
+                                <span class="text-green-500 font-medium">{{ devices|selectattr('status', 'equalto', 'healthy')|list|length }}</span>
+                                <span class="mx-1">/</span>
+                                <span>{{ devices|length }}</span>
+                                <span class="ml-1">devices healthy</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button class="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white border border-blue-600 rounded-lg hover:bg-blue-700 transition-colors" onclick="showAddDeviceModal()">
+                                <i class="fas fa-plus"></i>
+                                Add Device
+                            </button>
+                            <button class="inline-flex items-center gap-2 px-3 py-2 bg-purple-600 text-white border border-purple-600 rounded-lg hover:bg-purple-700 transition-colors" onclick="discoverVMs()">
+                                <i class="fas fa-laptop-code"></i>
+                                Discover VMs
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Status</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Device Name</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">IP Address</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Type</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Performance</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-gray-800">
+                                {% for device in devices %}
+                                <tr class="border-b border-gray-700 hover:bg-gray-700/50 transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-3 h-3 rounded-full {% if device.status == 'healthy' %}bg-green-500{% elif device.status == 'warning' %}bg-yellow-500{% else %}bg-red-500{% endif %}"></div>
+                                            <span class="text-sm capitalize text-white">{{ device.status }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="font-medium text-white">{{ device.name }}</div>
+                                        <div class="text-sm text-gray-400">{{ device.description or 'No description' }}</div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <code class="text-sm bg-gray-700 px-2 py-1 rounded text-gray-300">{{ device.ip }}</code>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded">
+                                            <i class="fas fa-{{ 'desktop' if device.device_type == 'vm' else 'server' }}"></i>
+                                            {{ device.device_type.title() }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="text-xs space-y-1 text-gray-300">
+                                            <div>CPU: <span class="font-medium">--</span>%</div>
+                                            <div>MEM: <span class="font-medium">--</span>%</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-1">
+                                            <button class="inline-flex items-center justify-center w-8 h-8 bg-gray-700 text-gray-300 border border-gray-600 rounded hover:bg-gray-600 transition-colors" title="View Details">
+                                                <i class="fas fa-eye text-xs"></i>
+                                            </button>
+                                            <button class="inline-flex items-center justify-center w-8 h-8 bg-gray-700 text-gray-300 border border-gray-600 rounded hover:bg-gray-600 transition-colors" title="Edit">
+                                                <i class="fas fa-edit text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
- Grafana Embedded Panels 
-<div class="grid grid-cols-2 mb-6">
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">Network Traffic</div>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;">
-                <i class="fas fa-external-link-alt"></i>
-            </button>
-        </div>
-        <iframe 
-            src="http://localhost:3000/d-solo/network/network-overview?orgId=1&panelId=1&theme=dark&from=now-12h&to=now"
-            class="grafana-panel"
-            frameborder="0">
-        </iframe>
-    </div>
-    
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">System Load</div>
-            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;">
-                <i class="fas fa-external-link-alt"></i>
-            </button>
-        </div>
-        <iframe 
-            src="http://localhost:3000/d-solo/system/system-overview?orgId=1&panelId=2&theme=dark&from=now-12h&to=now"
-            class="grafana-panel"
-            frameborder="0">
-        </iframe>
-    </div>
-</div>
-
- Additional System Info 
-<div class="grid grid-cols-3">
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">System Uptime</div>
-            <i class="fas fa-clock" style="color: var(--chart-2);"></i>
-        </div>
-        <div class="metric-value" style="font-size: 1.5rem;">{{ metrics.uptime }}</div>
-        <div class="metric-label">Since last restart</div>
-    </div>
-    
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">Load Average</div>
-            <i class="fas fa-tachometer-alt" style="color: var(--chart-3);"></i>
-        </div>
-        <div class="metric-value" style="font-size: 1.5rem;">{{ metrics.load_average }}</div>
-        <div class="metric-label">1 min average</div>
-    </div>
-    
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">Disk Usage</div>
-            <i class="fas fa-hdd" style="color: var(--chart-4);"></i>
-        </div>
-        <div class="metric-value" style="font-size: 1.5rem;">{{ metrics.disk_usage }}%</div>
-        <div class="metric-label">Root partition</div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-let systemChart = null;
-let chartLabels = [];
-let cpuData = [];
-let memData = [];
-const MAX_POINTS = 20;
+let systemChart, cpuChart, memoryChart, networkChart, deviceComparisonChart;
+let currentEditingDevice = null;
+let refreshInterval;
 
-function renderSystemChart(metrics) {
+// Initialize charts and start real-time updates
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    startRealTimeUpdates();
+});
+
+function initializeCharts() {
+    // System performance chart
     const ctx = document.getElementById('systemChart').getContext('2d');
-    const nowLabel = new Date().toLocaleTimeString();
+    systemChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array.from({length: 12}, (_, i) => `${11-i}h ago`),
+            datasets: [{
+                label: 'CPU %',
+                data: Array.from({length: 12}, () => Math.random() * 100),
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Memory %',
+                data: Array.from({length: 12}, () => Math.random() * 100),
+                borderColor: 'rgb(34, 197, 94)',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: { color: '#ededed' }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#71717a' },
+                    grid: { color: '#27272a' }
+                },
+                y: {
+                    ticks: { color: '#71717a' },
+                    grid: { color: '#27272a' }
+                }
+            }
+        }
+    });
 
-    // Add new data
-    chartLabels.push(nowLabel);
-    cpuData.push(metrics.cpu_usage);
-    memData.push(metrics.memory_usage);
+    // Initialize other charts when their tabs are active
+    initializePerformanceCharts();
+    initializeNetworkChart();
+}
 
-    // Limit to MAX_POINTS
-    if (chartLabels.length > MAX_POINTS) {
-        chartLabels.shift();
-        cpuData.shift();
-        memData.shift();
-    }
-
-    if (!systemChart) {
-        systemChart = new Chart(ctx, {
+function initializePerformanceCharts() {
+    // CPU Chart
+    const cpuCtx = document.getElementById('cpuChart')?.getContext('2d');
+    if (cpuCtx) {
+        cpuChart = new Chart(cpuCtx, {
             type: 'line',
             data: {
-                labels: [...chartLabels],
-                datasets: [
-                    {
-                        label: 'CPU %',
-                        data: [...cpuData],
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Memory %',
-                        data: [...memData],
-                        borderColor: 'rgb(34, 197, 94)',
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        tension: 0.4
-                    }
-                ]
+                labels: Array.from({length: 24}, (_, i) => `${23-i}h`),
+                datasets: [{
+                    label: 'CPU Usage %',
+                    data: Array.from({length: 24}, () => Math.random() * 100),
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.4
+                }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        labels: { color: '#ededed' }
-                    }
-                },
+                plugins: { legend: { labels: { color: '#ededed' } } },
                 scales: {
-                    x: {
-                        ticks: { color: '#71717a' },
-                        grid: { color: '#27272a' }
-                    },
-                    y: {
-                        min: 0,
-                        max: 100,
-                        ticks: { color: '#71717a' },
-                        grid: { color: '#27272a' }
-                    }
+                    x: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } },
+                    y: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } }
                 }
             }
         });
-    } else {
-        systemChart.data.labels = [...chartLabels];
-        systemChart.data.datasets[0].data = [...cpuData];
-        systemChart.data.datasets[1].data = [...memData];
-        systemChart.update();
+    }
+
+    // Memory Chart
+    const memCtx = document.getElementById('memoryChart')?.getContext('2d');
+    if (memCtx) {
+        memoryChart = new Chart(memCtx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 24}, (_, i) => `${23-i}h`),
+                datasets: [{
+                    label: 'Memory Usage %',
+                    data: Array.from({length: 24}, () => Math.random() * 100),
+                    borderColor: 'rgb(168, 85, 247)',
+                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#ededed' } } },
+                scales: {
+                    x: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } },
+                    y: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } }
+                }
+            }
+        });
+    }
+
+    // Device Comparison Chart
+    const devCtx = document.getElementById('deviceComparisonChart')?.getContext('2d');
+    if (devCtx) {
+        deviceComparisonChart = new Chart(devCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Web Server 01', 'Database Server', 'Load Balancer', 'Cache Server', 'Backup Server'],
+                datasets: [{
+                    label: 'CPU %',
+                    data: [45, 67, 23, 34, 12],
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                }, {
+                    label: 'Memory %',
+                    data: [56, 78, 34, 45, 23],
+                    backgroundColor: 'rgba(34, 197, 94, 0.8)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#ededed' } } },
+                scales: {
+                    x: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } },
+                    y: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } }
+                }
+            }
+        });
     }
 }
 
-// Initial fetch and chart render
-fetch('/api/metrics')
-    .then(response => response.json())
-    .then(metrics => {
-        renderSystemChart(metrics);
-    });
-
-// Update chart every 30 seconds
-setInterval(() => {
-    fetch('/api/metrics')
-        .then(response => response.json())
-        .then(metrics => {
-            renderSystemChart(metrics);
-        })
-        .catch(error => console.error('Error fetching metrics:', error));
-}, 30000);
+function initializeNetworkChart() {
+    const netCtx = document.getElementById('networkChart')?.getContext('2d');
+    if (netCtx) {
+        networkChart = new Chart(netCtx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 12}, (_, i) => `${11-i}h`),
+                datasets: [{
+                    label: 'Latency (ms)',
+                    data: Array.from({length: 12}, () => Math.random() * 100 + 10),
+                    borderColor: 'rgb(245, 158, 11)',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#ededed' } } },
+                scales: {
+                    x: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } },
+                    y: { ticks: { color: '#71717a' }, grid: { color: '#27272a' } }
+                }
+            }
+        });
+    }
+}
 
 // Tab switching functionality
-document.querySelectorAll('.nav-tab').forEach(tab => {
-    tab.addEventListener('click', function() {
-        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-        
-        // Here you would implement tab content switching
-        console.log('Switched to tab:', this.dataset.tab);
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.remove('active');
+        tab.classList.add('hover:text-foreground', 'border-transparent');
+        tab.classList.remove('border-primary', 'bg-primary/5');
+        tab.querySelector('i').classList.remove('text-primary');
+    });
+    const currentTab = document.querySelector(`[data-tab="${tabName}"]`);
+    currentTab.classList.add('active');
+    currentTab.classList.remove('hover:text-foreground', 'border-transparent');
+    currentTab.classList.add('border-primary', 'bg-primary/5');
+    currentTab.querySelector('i').classList.add('text-primary');
+    
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+        content.classList.remove('block');
+    });
+    document.getElementById(`${tabName}-content`).classList.remove('hidden');
+    document.getElementById(`${tabName}-content`).classList.add('block');
+    
+    // Initialize charts for performance tab when first opened
+    if (tabName === 'performance' && !cpuChart) {
+        setTimeout(initializePerformanceCharts, 100);
+    }
+    
+    // Initialize network chart when first opened
+    if (tabName === 'network' && !networkChart) {
+        setTimeout(initializeNetworkChart, 100);
+    }
+}
+
+// Real-time updates
+function startRealTimeUpdates() {
+    refreshInterval = setInterval(() => {
+        updateSystemMetrics();
+        updateDeviceMetrics();
+    }, 15000); // Update every 15 seconds
+}
+
+function updateSystemMetrics() {
+    fetch('/api/metrics')
+        .then(response => response.json())
+        .then(data => {
+            // Update overview metrics
+            document.getElementById('cpu-metric').textContent = data.cpu_usage + '%';
+            document.getElementById('memory-metric').textContent = data.memory_usage + '%';
+            document.getElementById('network-in-metric').textContent = data.network_in;
+            document.getElementById('network-out-metric').textContent = data.network_out;
+            
+            // Update chart with new data
+            if (systemChart) {
+                systemChart.data.datasets[0].data.shift();
+                systemChart.data.datasets[0].data.push(data.cpu_usage);
+                systemChart.data.datasets[1].data.shift();
+                systemChart.data.datasets[1].data.push(data.memory_usage);
+                systemChart.update('none');
+            }
+        })
+        .catch(error => console.error('Error fetching metrics:', error));
+}
+
+function updateDeviceMetrics() {
+    // Update device status in overview
+    fetch('/api/devices')
+        .then(response => response.json())
+        .then(devices => {
+            const healthyCount = devices.filter(d => d.status === 'healthy').length;
+            document.getElementById('healthy-count').textContent = healthyCount;
+            document.getElementById('total-count').textContent = devices.length;
+            
+            // Update device status items
+            devices.forEach(device => {
+                const statusItem = document.querySelector(`[data-device-id="${device.id}"]`);
+                if (statusItem) {
+                    const statusIndicator = statusItem.querySelector('.status-indicator');
+                    const responseTime = statusItem.querySelector('.device-response-time');
+                    
+                    statusIndicator.className = `status-indicator status-${device.status}`;
+                    
+                    if (device.response_time > 0) {
+                        responseTime.textContent = device.response_time + 'ms';
+                    } else {
+                        responseTime.innerHTML = '<span class="text-destructive">Offline</span>';
+                    }
+                }
+                
+                // Update device performance metrics in devices tab
+                fetchDeviceMetrics(device.id);
+            });
+        })
+        .catch(error => console.error('Error fetching device status:', error));
+}
+
+function fetchDeviceMetrics(deviceId) {
+    fetch(`/api/device/${deviceId}/metrics`)
+        .then(response => response.json())
+        .then(metrics => {
+            const perfElement = document.querySelector(`.device-performance[data-device-id="${deviceId}"]`);
+            if (perfElement) {
+                perfElement.querySelector('.device-cpu').textContent = metrics.cpu_usage || '--';
+                perfElement.querySelector('.device-memory').textContent = metrics.memory_usage || '--';
+            }
+            
+            const responseElement = document.querySelector(`.device-response-time-table[data-device-id="${deviceId}"]`);
+            if (responseElement && metrics.response_time > 0) {
+                const className = metrics.response_time > 200 ? 'text-red-500' : 
+                                metrics.response_time > 100 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-500';
+                responseElement.innerHTML = `<span class="${className}">${metrics.response_time}ms</span>`;
+            } else if (responseElement) {
+                responseElement.innerHTML = '<span class="text-red-500">Offline</span>';
+            }
+        })
+        .catch(error => console.error(`Error fetching metrics for device ${deviceId}:`, error));
+}
+
+// Device management functions
+function viewDeviceDetails(deviceId) {
+    fetch(`/api/device/${deviceId}/metrics`)
+        .then(response => response.json())
+        .then(metrics => {
+            const content = `
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="metric-card">
+                        <div class="card-header">
+                            <div class="card-title">CPU Usage</div>
+                        </div>
+                        <div class="metric-value">${metrics.cpu_usage}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="card-header">
+                            <div class="card-title">Memory Usage</div>
+                        </div>
+                        <div class="metric-value">${metrics.memory_usage}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="card-header">
+                            <div class="card-title">Disk Usage</div>
+                        </div>
+                        <div class="metric-value">${metrics.disk_usage}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="card-header">
+                            <div class="card-title">Uptime</div>
+                        </div>
+                        <div class="metric-value" style="font-size: 1.2rem;">${metrics.uptime}</div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="card-header">
+                        <div class="card-title">Network Traffic</div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="text-sm text-muted-foreground">Network In</div>
+                            <div class="text-lg font-medium">${metrics.network_in} MB/s</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-muted-foreground">Network Out</div>
+                            <div class="text-lg font-medium">${metrics.network_out} MB/s</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('deviceDetailsContent').innerHTML = content;
+            document.getElementById('deviceDetailsModal').style.display = 'flex';
+        })
+        .catch(error => {
+            console.error('Error fetching device details:', error);
+            alert('Error loading device details');
+        });
+}
+
+function closeDeviceDetailsModal() {
+    document.getElementById('deviceDetailsModal').style.display = 'none';
+}
+
+
+function showAddDeviceModal() {
+    document.getElementById('modalTitle').textContent = 'Add New Device';
+    document.getElementById('deviceForm').reset();
+    currentEditingDevice = null;
+    document.getElementById('deviceModal').style.display = 'flex';
+}
+
+function editDevice(deviceId) {
+    currentEditingDevice = deviceId;
+    document.getElementById('modalTitle').textContent = 'Edit Device';
+    document.getElementById('deviceModal').style.display = 'flex';
+    
+    // Fetch device data to pre-fill the form
+    fetch(`/api/devices/${deviceId}`)
+        .then(response => response.json())
+        .then(device => {
+            document.getElementById('deviceName').value = device.name;
+            document.getElementById('deviceIP').value = device.ip_address;
+            document.getElementById('deviceType').value = device.device_type;
+            document.getElementById('devicePort').value = device.port;
+            document.getElementById('deviceDescription').value = device.description;
+            document.getElementById('deviceTags').value = device.tags.join(', ');
+        })
+        .catch(error => {
+            console.error('Error fetching device data for edit:', error);
+            alert('Error loading device data for editing.');
+        });
+}
+
+function closeDeviceModal() {
+    document.getElementById('deviceModal').style.display = 'none';
+    currentEditingDevice = null;
+}
+
+function deleteDevice(deviceId) {
+    if (!confirm('Are you sure you want to remove this device from monitoring?')) return;
+    
+    fetch(`/api/devices/${deviceId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error deleting device: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error deleting device');
+    });
+}
+
+function testConnection(deviceId) {
+    const button = event.target.closest('button');
+    const originalContent = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.disabled = true;
+    
+    setTimeout(() => {
+        button.innerHTML = originalContent;
+        button.disabled = false;
+        alert('Connection test completed (mock)');
+    }, 2000);
+}
+
+// Device form submission
+document.getElementById('deviceForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const deviceData = {
+        name: formData.get('name'),
+        ip_address: formData.get('ip_address'),
+        device_type: formData.get('device_type'),
+        port: parseInt(formData.get('port')) || 22,
+        description: formData.get('description'),
+        tags: formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag)
+    };
+    
+    const url = currentEditingDevice ? `/api/devices/${currentEditingDevice}` : '/api/devices/add';
+    const method = currentEditingDevice ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(deviceData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeDeviceModal();
+            location.reload();
+        } else {
+            alert('Error saving device: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving device');
     });
 });
+
+// Network discovery functions
+function discoverDevices() {
+    document.getElementById('discoveryModal').style.display = 'flex';
+}
+
+function closeDiscoveryModal() {
+    document.getElementById('discoveryModal').style.display = 'none';
+    document.getElementById('discoveryResults').style.display = 'none';
+}
+
+function startDiscovery() {
+    const networkRange = document.getElementById('networkRange').value;
+    const resultsDiv = document.getElementById('discoveryResults');
+    const listDiv = document.getElementById('discoveredDevicesList');
+    
+    resultsDiv.style.display = 'block';
+    listDiv.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Scanning network...</div>';
+    
+    fetch('/api/devices/discover', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ network_range: networkRange })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.devices && data.devices.length > 0) {
+            listDiv.innerHTML = data.devices.map(device => `
+                <div class="flex items-center justify-between p-3 border rounded mb-2">
+                    <div>
+                        <div class="font-medium">${device.hostname}</div>
+                        <div class="text-sm text-muted-foreground">${device.ip} - ${device.device_type}</div>
+                        <div class="text-xs">Ports: ${device.ports.join(', ')}</div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="addDiscoveredDevice('${device.ip}', '${device.hostname}', '${device.device_type}')">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                </div>
+            `).join('');
+        } else {
+            listDiv.innerHTML = '<div class="text-center text-muted-foreground">No new devices discovered</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        listDiv.innerHTML = '<div class="text-center text-destructive">Error during discovery</div>';
+    });
+}
+
+function addDiscoveredDevice(ip, hostname, deviceType) {
+    closeDiscoveryModal();
+    
+    document.getElementById('deviceName').value = hostname;
+    document.getElementById('deviceIP').value = ip;
+    document.getElementById('deviceType').value = deviceType;
+    
+    showAddDeviceModal();
+}
+
+// VM discovery functions
+function discoverVMs() {
+    document.getElementById('vmDiscoveryModal').style.display = 'flex';
+}
+
+function closeVmDiscoveryModal() {
+    document.getElementById('vmDiscoveryModal').style.display = 'none';
+    document.getElementById('vmScanResults').style.display = 'none';
+    document.getElementById('vmScanLoading').style.display = 'none';
+}
+
+function scanForVMs() {
+    const loadingDiv = document.getElementById('vmScanLoading');
+    const resultsDiv = document.getElementById('vmScanResults');
+    const listDiv = document.getElementById('discoveredVMsList');
+    
+    loadingDiv.style.display = 'block';
+    resultsDiv.style.display = 'none';
+    
+    fetch('/api/vms/discover', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingDiv.style.display = 'none';
+        
+        if (data.vms && data.vms.length > 0) {
+            listDiv.innerHTML = data.vms.map(vm => `
+                <div class="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-3 h-3 rounded-full ${vm.status === 'running' ? 'bg-green-500' : vm.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500'}"></div>
+                            <div class="font-medium text-foreground">${vm.vm_name}</div>
+                            <span class="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded">${vm.status}</span>
+                        </div>
+                        <div class="text-sm text-muted-foreground space-y-1">
+                            <div><strong>OS:</strong> ${vm.os_type}</div>
+                            <div><strong>Memory:</strong> ${vm.memory}MB | <strong>CPUs:</strong> ${vm.cpus}</div>
+                            ${vm.ip_address ? `<div><strong>IP:</strong> ${vm.ip_address}</div>` : '<div class="text-yellow-600">No IP detected - VM may need to be running</div>'}
+                            <div class="text-xs text-muted-foreground mt-1">ID: ${vm.vm_id}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${vm.status === 'running' && vm.ip_address ? 
+                            `<button class="inline-flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground border border-primary rounded-lg hover:bg-primary/90 transition-colors" onclick="setupVmMonitoring('${vm.vm_id}', '${vm.vm_name}', '${vm.ip_address}', '${vm.description}')">
+                                <i class="fas fa-plus"></i>
+                                Add to Monitoring
+                            </button>` :
+                            `<button class="inline-flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground border border-border rounded-lg opacity-50 cursor-not-allowed" disabled>
+                                <i class="fas fa-exclamation-triangle"></i>
+                                ${vm.status !== 'running' ? 'VM Not Running' : 'No IP Address'}
+                            </button>`
+                        }
+                    </div>
+                </div>
+            `).join('');
+            resultsDiv.style.display = 'block';
+        } else {
+            listDiv.innerHTML = '<div class="text-center text-muted-foreground py-8">No VirtualBox VMs found or VirtualBox not installed</div>';
+            resultsDiv.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        loadingDiv.style.display = 'none';
+        listDiv.innerHTML = '<div class="text-center text-destructive py-8">Error scanning for VMs. Make sure VirtualBox is installed and accessible.</div>';
+        resultsDiv.style.display = 'block';
+    });
+}
+
+function setupVmMonitoring(vmId, vmName, ipAddress, description) {
+    closeVmDiscoveryModal();
+    
+    document.getElementById('vmId').value = vmId;
+    document.getElementById('vmName').value = vmName;
+    document.getElementById('vmDisplayName').value = vmName;
+    document.getElementById('vmIPAddress').value = ipAddress;
+    document.getElementById('vmDescription').value = description;
+    document.getElementById('vmTags').value = 'vm,virtualbox';
+    
+    document.getElementById('vmSetupModal').style.display = 'flex';
+}
+
+function closeVmSetupModal() {
+    document.getElementById('vmSetupModal').style.display = 'none';
+}
+
+// VM setup form submission
+document.getElementById('vmSetupForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const vmData = {
+        name: formData.get('name'),
+        ip_address: formData.get('ip_address'),
+        port: parseInt(formData.get('port')) || 22,
+        description: formData.get('description'),
+        tags: formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag),
+        username: formData.get('username'),
+        password: formData.get('password'),
+        ssh_key_path: formData.get('ssh_key_path'),
+        vm_id: formData.get('vm_id'),
+        vm_name: formData.get('vm_name'),
+        status: 'running'
+    };
+    
+    const installAgent = document.getElementById('installAgent').checked;
+    
+    fetch('/api/devices/add-vm', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(vmData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeVmSetupModal();
+            
+            // Install agent if requested
+            if (installAgent) {
+                fetch(`/api/devices/${data.device_id}/install-agent`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(agentData => {
+                    if (agentData.success) {
+                        alert('VM added successfully! Monitoring agent installation started.');
+                    } else {
+                        alert('VM added successfully, but agent installation failed: ' + agentData.error);
+                    }
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Agent installation error:', error);
+                    alert('VM added successfully, but agent installation failed.');
+                    location.reload();
+                });
+            } else {
+                alert('VM added successfully!');
+                location.reload();
+            }
+        } else {
+            alert('Error adding VM: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error adding VM');
+    });
+});
+
+// Search and filter functionality
+document.getElementById('deviceSearch').addEventListener('input', filterDevices);
+document.getElementById('deviceFilter').addEventListener('change', filterDevices);
+
+function filterDevices() {
+    const searchTerm = document.getElementById('deviceSearch').value.toLowerCase();
+    const filterType = document.getElementById('deviceFilter').value;
+    const rows = document.querySelectorAll('#deviceTableBody tr');
+    
+    rows.forEach(row => {
+        const deviceName = row.querySelector('td:nth-child(2) div:first-child').textContent.toLowerCase();
+        const deviceIP = row.querySelector('td:nth-child(3) code').textContent.toLowerCase();
+        const deviceType = row.dataset.deviceType;
+        
+        const matchesSearch = deviceName.includes(searchTerm) || deviceIP.includes(searchTerm);
+        const matchesFilter = !filterType || deviceType === filterType;
+        
+        row.style.display = matchesSearch && matchesFilter ? '' : 'none';
+    });
+}
 
 // Time range change handler
 document.getElementById('timeRange').addEventListener('change', function() {
     const timeRange = this.value;
     updateGrafanaPanels(timeRange);
-    console.log('Time range changed to:', timeRange);
 });
 
 function updateGrafanaPanels(timeRange) {
-    // Update Grafana iframe sources with new time range
     const iframes = document.querySelectorAll('.grafana-panel');
     iframes.forEach(iframe => {
-        const src = iframe.src;
-        const newSrc = src.replace(/from=now-\w+/, `from=now-${timeRange}`);
-        iframe.src = newSrc;
+        const url = new URL(iframe.src);
+        url.searchParams.set('from', `now-${timeRange}`);
+        iframe.src = url.toString();
     });
 }
 
 function refreshDashboard() {
-    // Refresh all data
-    location.reload();
+    updateSystemMetrics();
+    updateDeviceMetrics();
 }
 
-// Auto-refresh every 30 seconds
-setInterval(() => {
-    fetch('/api/metrics')
-        .then(response => response.json())
-        .then(data => {
-            // Update metrics in real-time
-            document.querySelector('.metric-value').textContent = data.cpu_usage + '%';
-            // Update other metrics...
-        })
-        .catch(error => console.error('Error fetching metrics:', error));
-}, 30000);
+function dismissAlert(alertId) {
+    document.getElementById(alertId).style.display = 'none';
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
+
+let charts = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeGaugeCharts();
+    initializeTimeSeriesCharts();
+    startRealTimeUpdates();
+});
+
+function createGaugeChart(canvasId, value, maxValue = 100, color = '#10b981') {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = 35;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Background arc
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0.75 * Math.PI, 0.25 * Math.PI);
+    ctx.strokeStyle = '#374151';
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    
+    // Value arc with color based on thresholds
+    let gaugeColor = color;
+    if (value > 80) gaugeColor = '#ef4444'; // red
+    else if (value > 60) gaugeColor = '#f59e0b'; // yellow
+    else gaugeColor = '#10b981'; // green
+    
+    const angle = 0.75 * Math.PI + (1.5 * Math.PI * (value / maxValue));
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0.75 * Math.PI, angle);
+    ctx.strokeStyle = gaugeColor;
+    ctx.lineWidth = 8;
+    ctx.stroke();
+}
+
+function initializeGaugeCharts() {
+    createGaugeChart('cpuGauge', 1.5, 100, '#10b981');
+    createGaugeChart('memoryGauge', 16, 100, '#10b981');
+    createGaugeChart('swapGauge', 0, 100, '#6b7280');
+    createGaugeChart('diskGauge', 46, 100, '#10b981');
+    createGaugeChart('load1mGauge', 1.5, 100, '#10b981');
+    createGaugeChart('load5mGauge', 1, 100, '#10b981');
+}
+
+function initializeTimeSeriesCharts() {
+    // CPU Basic Chart
+    const cpuCtx = document.getElementById('cpuBasicChart');
+    if (cpuCtx) {
+        charts.cpuBasic = new Chart(cpuCtx, {
+            type: 'line',
+            data: {
+                labels: generateTimeLabels(24),
+                datasets: [{
+                    label: 'Busy System',
+                    data: generateSampleData(24, 0, 5),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.1
+                }, {
+                    label: 'Busy User',
+                    data: generateSampleData(24, 0, 3),
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: getChartOptions()
+        });
+    }
+
+    // Memory Basic Chart
+    const memCtx = document.getElementById('memoryBasicChart');
+    if (memCtx) {
+        charts.memoryBasic = new Chart(memCtx, {
+            type: 'line',
+            data: {
+                labels: generateTimeLabels(24),
+                datasets: [{
+                    label: 'RAM Total',
+                    data: generateSampleData(24, 3.7, 3.8),
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    fill: false,
+                    tension: 0.1
+                }, {
+                    label: 'RAM Used',
+                    data: generateSampleData(24, 0.5, 0.7),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.1
+                }]
+            },
+            options: getChartOptions()
+        });
+    }
+
+    // Network Traffic Chart
+    const netCtx = document.getElementById('networkTrafficChart');
+    if (netCtx) {
+        charts.networkTraffic = new Chart(netCtx, {
+            type: 'line',
+            data: {
+                labels: generateTimeLabels(24),
+                datasets: [{
+                    label: 'Receive',
+                    data: generateSampleData(24, 0, 150),
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    fill: false,
+                    tension: 0.1
+                }, {
+                    label: 'Transmit',
+                    data: generateSampleData(24, 0, 100),
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    fill: false,
+                    tension: 0.1
+                }]
+            },
+            options: getChartOptions()
+        });
+    }
+
+    // Disk Space Chart
+    const diskCtx = document.getElementById('diskSpaceChart');
+    if (diskCtx) {
+        charts.diskSpace = new Chart(diskCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Root FS', 'Boot', 'Tmp'],
+                datasets: [{
+                    label: 'Used %',
+                    data: [46, 12, 8],
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b']
+                }]
+            },
+            options: {
+                ...getChartOptions(),
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: { color: '#9ca3af' },
+                        grid: { color: '#374151' }
+                    },
+                    x: {
+                        ticks: { color: '#9ca3af' },
+                        grid: { color: '#374151' }
+                    }
+                }
+            }
+        });
+    }
+}
+
+function generateTimeLabels(hours) {
+    const labels = [];
+    for (let i = hours - 1; i >= 0; i--) {
+        labels.push(`${i}h`);
+    }
+    return labels;
+}
+
+function generateSampleData(points, min, max) {
+    return Array.from({length: points}, () => Math.random() * (max - min) + min);
+}
+
+function getChartOptions() {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: { color: '#e5e7eb' }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#9ca3af' },
+                grid: { color: '#374151' }
+            },
+            y: {
+                ticks: { color: '#9ca3af' },
+                grid: { color: '#374151' }
+            }
+        }
+    };
+}
+
+function toggleSection(sectionId) {
+    const content = document.getElementById(sectionId + '-content');
+    const icon = document.getElementById(sectionId + '-icon');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'grid';
+        icon.style.transform = 'rotate(0deg)';
+    } else {
+        content.style.display = 'none';
+        icon.style.transform = 'rotate(-90deg)';
+    }
+}
+
+function startRealTimeUpdates() {
+    setInterval(() => {
+        updateGaugeCharts();
+        updateTimeSeriesCharts();
+    }, 30000);
+}
+
+function updateGaugeCharts() {
+    // Simulate real-time updates
+    const cpuValue = Math.random() * 10;
+    const memValue = 15 + Math.random() * 5;
+    const diskValue = 45 + Math.random() * 5;
+    
+    createGaugeChart('cpuGauge', cpuValue, 100, '#10b981');
+    createGaugeChart('memoryGauge', memValue, 100, '#10b981');
+    createGaugeChart('diskGauge', diskValue, 100, '#10b981');
+    
+    document.getElementById('cpu-percentage').textContent = cpuValue.toFixed(1) + '%';
+    document.getElementById('memory-percentage').textContent = memValue.toFixed(0) + '%';
+    document.getElementById('disk-percentage').textContent = diskValue.toFixed(0) + '%';
+}
+
+function updateTimeSeriesCharts() {
+    Object.values(charts).forEach(chart => {
+        if (chart && chart.data && chart.data.datasets) {
+            chart.data.datasets.forEach(dataset => {
+                dataset.data.shift();
+                dataset.data.push(Math.random() * 100);
+            });
+            chart.update('none');
+        }
+    });
+}
+
 </script>
 {% endblock %}
