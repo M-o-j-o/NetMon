@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold">Network Dashboard</h1>
+        <p class="text-muted-foreground">Real-time monitoring and system overview</p>
+    </div>
+    <div class="flex items-center gap-4">
+        <a href="/devices" class="btn btn-secondary">
+            <i class="fas fa-server"></i>
+            Manage Devices
+        </a>
+        <button class="btn btn-primary" onclick="refreshDashboard()">
+            <i class="fas fa-sync-alt"></i>
+            Refresh
+        </button>
+    </div>
+</div>
+
+ Alert Banner 
+{% if alerts %}
+<div class="mb-6">
+    {% for alert in alerts %}
+    <div class="alert alert-{{ alert.severity }}">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <strong>{{ alert.device }}</strong>: {{ alert.message }}
+                    <div class="text-xs" style="margin-top: 0.25rem; opacity: 0.8;">
+                        {{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+ Time Range Selector 
+<div class="flex items-center justify-between mb-6">
+    <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="overview">Overview</button>
+        <button class="nav-tab" data-tab="compute">Compute</button>
+        <button class="nav-tab" data-tab="network">Network</button>
+        <button class="nav-tab" data-tab="storage">Storage</button>
+    </div>
+    
+    <div class="flex items-center gap-4">
+        <select id="timeRange" class="btn btn-secondary" style="background-color: var(--secondary);">
+            <option value="1h">Last 1 hour</option>
+            <option value="6h">Last 6 hours</option>
+            <option value="12h" selected>Last 12 hours</option>
+            <option value="24h">Last 24 hours</option>
+            <option value="7d">Last 7 days</option>
+        </select>
+        <button class="btn btn-primary" onclick="refreshDashboard()">
+            <i class="fas fa-sync-alt"></i>
+            Refresh
+        </button>
+    </div>
+</div>
+
+ System Overview Cards 
+<div class="grid grid-cols-4 mb-6">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">CPU Usage</div>
+            <i class="fas fa-microchip" style="color: var(--chart-1);"></i>
+        </div>
+        <div class="metric-value">{{ metrics.cpu_usage }}%</div>
+        <div class="metric-change positive">
+            <i class="fas fa-arrow-down"></i> 2.3% from last hour
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Memory Usage</div>
+            <i class="fas fa-memory" style="color: var(--chart-2);"></i>
+        </div>
+        <div class="metric-value">{{ metrics.memory_usage }}%</div>
+        <div class="metric-change negative">
+            <i class="fas fa-arrow-up"></i> 5.1% from last hour
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Network In</div>
+            <i class="fas fa-download" style="color: var(--chart-3);"></i>
+        </div>
+        <div class="metric-value">{{ metrics.network_in }}</div>
+        <div class="metric-label">MB/s</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Network Out</div>
+            <i class="fas fa-upload" style="color: var(--chart-4);"></i>
+        </div>
+        <div class="metric-value">{{ metrics.network_out }}</div>
+        <div class="metric-label">MB/s</div>
+    </div>
+</div>
+
+ Main Content Grid 
+<div class="grid grid-cols-2 mb-6">
+     System Metrics Chart 
+    <div class="card" style="height: 320px; min-height: 320px;">
+        <div class="card-header">
+            <div class="card-title">System Performance</div>
+            <div class="flex items-center gap-2">
+                <span class="status-indicator status-healthy">
+                    <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
+                    Healthy
+                </span>
+            </div>
+        </div>
+        <div style="height: 220px;">
+            <canvas id="systemChart" style="width:100%; height:100%;"></canvas>
+        </div>
+    </div>
+    
+     Device Status 
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Device Status</div>
+            <div class="text-sm" style="color: var(--muted-foreground);">
+                {{ devices|selectattr('status', 'equalto', 'healthy')|list|length }}/{{ devices|length }} devices healthy
+            </div>
+        </div>
+        <div style="max-height: 300px; overflow-y: auto;">
+            {% for device in devices %}
+            <div class="flex items-center justify-between" style="padding: 0.75rem 0; border-bottom: 1px solid var(--border);">
+                <div class="flex items-center gap-4">
+                    <div class="status-indicator status-{{ device.status }}">
+                        <i class="fas fa-circle" style="font-size: 0.5rem;"></i>
+                    </div>
+                    <div>
+                        <div class="font-medium">{{ device.name }}</div>
+                        <div class="text-sm" style="color: var(--muted-foreground);">{{ device.ip }}</div>
+                    </div>
+                </div>
+                <div class="text-sm">
+                    {% if device.response_time > 0 %}
+                        {{ device.response_time }}ms
+                    {% else %}
+                        <span style="color: var(--destructive);">Offline</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+ Grafana Embedded Panels 
+<div class="grid grid-cols-2 mb-6">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Network Traffic</div>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;">
+                <i class="fas fa-external-link-alt"></i>
+            </button>
+        </div>
+        <iframe 
+            src="http://localhost:3000/d-solo/network/network-overview?orgId=1&panelId=1&theme=dark&from=now-12h&to=now"
+            class="grafana-panel"
+            frameborder="0">
+        </iframe>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">System Load</div>
+            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;">
+                <i class="fas fa-external-link-alt"></i>
+            </button>
+        </div>
+        <iframe 
+            src="http://localhost:3000/d-solo/system/system-overview?orgId=1&panelId=2&theme=dark&from=now-12h&to=now"
+            class="grafana-panel"
+            frameborder="0">
+        </iframe>
+    </div>
+</div>
+
+ Additional System Info 
+<div class="grid grid-cols-3">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">System Uptime</div>
+            <i class="fas fa-clock" style="color: var(--chart-2);"></i>
+        </div>
+        <div class="metric-value" style="font-size: 1.5rem;">{{ metrics.uptime }}</div>
+        <div class="metric-label">Since last restart</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Load Average</div>
+            <i class="fas fa-tachometer-alt" style="color: var(--chart-3);"></i>
+        </div>
+        <div class="metric-value" style="font-size: 1.5rem;">{{ metrics.load_average }}</div>
+        <div class="metric-label">1 min average</div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">Disk Usage</div>
+            <i class="fas fa-hdd" style="color: var(--chart-4);"></i>
+        </div>
+        <div class="metric-value" style="font-size: 1.5rem;">{{ metrics.disk_usage }}%</div>
+        <div class="metric-label">Root partition</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let systemChart = null;
+let chartLabels = [];
+let cpuData = [];
+let memData = [];
+const MAX_POINTS = 20;
+
+function renderSystemChart(metrics) {
+    const ctx = document.getElementById('systemChart').getContext('2d');
+    const nowLabel = new Date().toLocaleTimeString();
+
+    // Add new data
+    chartLabels.push(nowLabel);
+    cpuData.push(metrics.cpu_usage);
+    memData.push(metrics.memory_usage);
+
+    // Limit to MAX_POINTS
+    if (chartLabels.length > MAX_POINTS) {
+        chartLabels.shift();
+        cpuData.shift();
+        memData.shift();
+    }
+
+    if (!systemChart) {
+        systemChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [...chartLabels],
+                datasets: [
+                    {
+                        label: 'CPU %',
+                        data: [...cpuData],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Memory %',
+                        data: [...memData],
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#ededed' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#71717a' },
+                        grid: { color: '#27272a' }
+                    },
+                    y: {
+                        min: 0,
+                        max: 100,
+                        ticks: { color: '#71717a' },
+                        grid: { color: '#27272a' }
+                    }
+                }
+            }
+        });
+    } else {
+        systemChart.data.labels = [...chartLabels];
+        systemChart.data.datasets[0].data = [...cpuData];
+        systemChart.data.datasets[1].data = [...memData];
+        systemChart.update();
+    }
+}
+
+// Initial fetch and chart render
+fetch('/api/metrics')
+    .then(response => response.json())
+    .then(metrics => {
+        renderSystemChart(metrics);
+    });
+
+// Update chart every 30 seconds
+setInterval(() => {
+    fetch('/api/metrics')
+        .then(response => response.json())
+        .then(metrics => {
+            renderSystemChart(metrics);
+        })
+        .catch(error => console.error('Error fetching metrics:', error));
+}, 30000);
+
+// Tab switching functionality
+document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        
+        // Here you would implement tab content switching
+        console.log('Switched to tab:', this.dataset.tab);
+    });
+});
+
+// Time range change handler
+document.getElementById('timeRange').addEventListener('change', function() {
+    const timeRange = this.value;
+    updateGrafanaPanels(timeRange);
+    console.log('Time range changed to:', timeRange);
+});
+
+function updateGrafanaPanels(timeRange) {
+    // Update Grafana iframe sources with new time range
+    const iframes = document.querySelectorAll('.grafana-panel');
+    iframes.forEach(iframe => {
+        const src = iframe.src;
+        const newSrc = src.replace(/from=now-\w+/, `from=now-${timeRange}`);
+        iframe.src = newSrc;
+    });
+}
+
+function refreshDashboard() {
+    // Refresh all data
+    location.reload();
+}
+
+// Auto-refresh every 30 seconds
+setInterval(() => {
+    fetch('/api/metrics')
+        .then(response => response.json())
+        .then(data => {
+            // Update metrics in real-time
+            document.querySelector('.metric-value').textContent = data.cpu_usage + '%';
+            // Update other metrics...
+        })
+        .catch(error => console.error('Error fetching metrics:', error));
+}, 30000);
+</script>
+{% endblock %}

@@ -1,41 +1,53 @@
+version: '3.8'
+
 services:
-  prometheus:
-    image: prom/prometheus
-    container_name: prometheus_netmon
+  flask-app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - .:/app
+    depends_on:
+      - prometheus
+      - grafana
+
+  prometheus:
+    image: prom/prometheus:latest
     ports:
       - "9090:9090"
-    networks:
-      - monitoring
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
 
   grafana:
-    image: grafana/grafana:11.5.8
-    container_name: grafana
+    image: grafana/grafana:latest
     ports:
       - "3000:3000"
-    networks:
-      - monitoring
     environment:
-      - GF_SECURITY_ALLOW_EMBEDDING=true
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ALLOW_EMBEDDING=true
     volumes:
-      - ./grafana.ini:/etc/grafana/grafana.ini
-      - grafana_data:/var/lib/grafana
+      - grafana-storage:/var/lib/grafana
 
-  node_exporter:
+  node-exporter:
     image: prom/node-exporter:latest
-    container_name: node_exporter_netmon
     ports:
       - "9100:9100"
-    networks:
-      - monitoring
-    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
     command:
-      - '--path.rootfs=/host'
-
-networks:
-  monitoring:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
 
 volumes:
-  grafana_data:
+  grafana-storage:
