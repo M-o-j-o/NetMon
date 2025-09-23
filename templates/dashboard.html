@@ -23,7 +23,7 @@
                 <i class="fas fa-clock"></i>
                 <span>Last 24 hours</span>
             </div>
-            <button class="flex items-center gap-2 px-3 py-1 bg-gray-700 text-white border border-gray-600 rounded hover:bg-gray-600 transition-colors">
+            <button class="flex items-center gap-2 px-3 py-1 bg-gray-700 text-white border border-gray-600 rounded hover:bg-gray-600 transition-colors" onclick="refreshDashboard()">
                 <i class="fas fa-sync-alt"></i>
                 <span>Refresh</span>
             </button>
@@ -305,9 +305,9 @@
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-4">
                             <div class="text-sm text-gray-400">
-                                <span class="text-green-500 font-medium">{{ devices|selectattr('status', 'equalto', 'healthy')|list|length }}</span>
+                                <span class="text-green-500 font-medium" id="healthy-count">{{ devices|selectattr('status', 'equalto', 'healthy')|list|length }}</span>
                                 <span class="mx-1">/</span>
-                                <span>{{ devices|length }}</span>
+                                <span id="total-count">{{ devices|length }}</span>
                                 <span class="ml-1">devices healthy</span>
                             </div>
                         </div>
@@ -335,9 +335,9 @@
                                     <th class="px-4 py-3 text-left text-sm font-semibold text-gray-300">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-gray-800">
+                            <tbody id="deviceTableBody">
                                 {% for device in devices %}
-                                <tr class="border-b border-gray-700 hover:bg-gray-700/50 transition-colors">
+                                <tr class="border-b border-gray-700 hover:bg-gray-700/50 transition-colors" data-device-id="{{ device.id }}" data-device-type="{{ device.device_type }}">
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-2">
                                             <div class="w-3 h-3 rounded-full {% if device.status == 'healthy' %}bg-green-500{% elif device.status == 'warning' %}bg-yellow-500{% else %}bg-red-500{% endif %}"></div>
@@ -358,18 +358,35 @@
                                         </span>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <div class="text-xs space-y-1 text-gray-300">
-                                            <div>CPU: <span class="font-medium">--</span>%</div>
-                                            <div>MEM: <span class="font-medium">--</span>%</div>
+                                        <div class="text-xs space-y-1 text-gray-300 device-performance" data-device-id="{{ device.id }}">
+                                            <div>CPU: <span class="font-medium device-cpu">--</span>%</div>
+                                            <div>MEM: <span class="font-medium device-memory">--</span>%</div>
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-1">
-                                            <button class="inline-flex items-center justify-center w-8 h-8 bg-gray-700 text-gray-300 border border-gray-600 rounded hover:bg-gray-600 transition-colors" title="View Details">
+                                             
+                                            <button onclick="viewDeviceDetails({{ device.id }})" 
+                                                    class="inline-flex items-center justify-center w-8 h-8 bg-gray-700 text-gray-300 border border-gray-600 rounded hover:bg-gray-600 transition-colors" 
+                                                    title="View Details">
                                                 <i class="fas fa-eye text-xs"></i>
                                             </button>
-                                            <button class="inline-flex items-center justify-center w-8 h-8 bg-gray-700 text-gray-300 border border-gray-600 rounded hover:bg-gray-600 transition-colors" title="Edit">
+                                            <button onclick="editDevice({{ device.id }})" 
+                                                    class="inline-flex items-center justify-center w-8 h-8 bg-gray-700 text-gray-300 border border-gray-600 rounded hover:bg-gray-600 transition-colors" 
+                                                    title="Edit">
                                                 <i class="fas fa-edit text-xs"></i>
+                                            </button>
+                                            {% if device.device_type == 'vm' and not device.agent_installed %}
+                                            <button onclick="installAgent({{ device.id }})" 
+                                                    class="inline-flex items-center justify-center w-8 h-8 bg-green-700 text-white border border-green-600 rounded hover:bg-green-600 transition-colors" 
+                                                    title="Install Agent">
+                                                <i class="fas fa-download text-xs"></i>
+                                            </button>
+                                            {% endif %}
+                                            <button onclick="deleteDevice({{ device.id }})" 
+                                                    class="inline-flex items-center justify-center w-8 h-8 bg-red-700 text-white border border-red-600 rounded hover:bg-red-600 transition-colors" 
+                                                    title="Delete">
+                                                <i class="fas fa-trash text-xs"></i>
                                             </button>
                                         </div>
                                     </td>
@@ -384,6 +401,204 @@
     </div>
 </div>
 
+ Add Device Modal 
+<div id="deviceModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-md mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 id="modalTitle" class="text-lg font-semibold text-white">Add New Device</h3>
+            <button onclick="closeDeviceModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form id="deviceForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Device Name</label>
+                <input type="text" id="deviceName" name="name" required 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">IP Address</label>
+                <input type="text" id="deviceIP" name="ip_address" required 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Device Type</label>
+                <select id="deviceType" name="device_type" required 
+                        class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+                    <option value="server">Server</option>
+                    <option value="vm">Virtual Machine</option>
+                    <option value="network">Network Device</option>
+                    <option value="printer">Printer</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Port</label>
+                <input type="number" id="devicePort" name="port" value="22" 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                <textarea id="deviceDescription" name="description" rows="2" 
+                          class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none"></textarea>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Tags (comma-separated)</label>
+                <input type="text" id="deviceTags" name="tags" placeholder="production, web, database" 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div class="flex items-center justify-end gap-3 pt-4">
+                <button type="button" onclick="closeDeviceModal()" 
+                        class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+                    Save Device
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+ VM Discovery Modal 
+<div id="vmDiscoveryModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">Discover VirtualBox VMs</h3>
+            <button onclick="closeVmDiscoveryModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="mb-4">
+            <p class="text-gray-300 mb-4">Scan for VirtualBox virtual machines on this system.</p>
+            <button onclick="scanForVMs()" 
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
+                <i class="fas fa-search"></i>
+                Scan for VMs
+            </button>
+        </div>
+        
+         Loading indicator 
+        <div id="vmScanLoading" class="text-center py-8" style="display: none;">
+            <i class="fas fa-spinner fa-spin text-2xl text-blue-500 mb-2"></i>
+            <p class="text-gray-300">Scanning for VirtualBox VMs...</p>
+        </div>
+        
+         Results 
+        <div id="vmScanResults" style="display: none;">
+            <h4 class="text-md font-semibold text-white mb-3">Discovered VMs</h4>
+            <div id="discoveredVMsList" class="space-y-3"></div>
+        </div>
+    </div>
+</div>
+
+ VM Setup Modal 
+<div id="vmSetupModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-md mx-4">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">Setup VM Monitoring</h3>
+            <button onclick="closeVmSetupModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form id="vmSetupForm" class="space-y-4">
+            <input type="hidden" id="vmId" name="vm_id">
+            <input type="hidden" id="vmName" name="vm_name">
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Display Name</label>
+                <input type="text" id="vmDisplayName" name="name" required 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">IP Address</label>
+                <input type="text" id="vmIPAddress" name="ip_address" required 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">SSH Port</label>
+                <input type="number" name="port" value="22" 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">SSH Username</label>
+                <input type="text" name="username" required 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">SSH Password</label>
+                <input type="password" name="password" 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">SSH Key Path (optional)</label>
+                <input type="text" name="ssh_key_path" placeholder="/path/to/private/key" 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Description</label>
+                <textarea id="vmDescription" name="description" rows="2" 
+                          class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none"></textarea>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">Tags</label>
+                <input type="text" id="vmTags" name="tags" 
+                       class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none">
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="installAgent" checked 
+                       class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500">
+                <label for="installAgent" class="text-sm text-gray-300">Install monitoring agent automatically</label>
+            </div>
+            
+            <div class="flex items-center justify-end gap-3 pt-4">
+                <button type="button" onclick="closeVmSetupModal()" 
+                        class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors">
+                    Add VM
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+ Device Details Modal 
+<div id="deviceDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">Device Details</h3>
+            <button onclick="closeDeviceDetailsModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div id="deviceDetailsContent">
+             Content will be populated by JavaScript 
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -394,8 +609,12 @@ let refreshInterval;
 
 // Initialize charts and start real-time updates
 document.addEventListener('DOMContentLoaded', function() {
-    initializeCharts();
+    initializeGaugeCharts();
+    initializeTimeSeriesCharts();
     startRealTimeUpdates();
+    
+    // Initial device metrics update
+    updateDeviceMetrics();
 });
 
 function initializeCharts() {
@@ -752,15 +971,18 @@ function editDevice(deviceId) {
     document.getElementById('deviceModal').style.display = 'flex';
     
     // Fetch device data to pre-fill the form
-    fetch(`/api/devices/${deviceId}`)
+    fetch(`/api/devices`)
         .then(response => response.json())
-        .then(device => {
-            document.getElementById('deviceName').value = device.name;
-            document.getElementById('deviceIP').value = device.ip_address;
-            document.getElementById('deviceType').value = device.device_type;
-            document.getElementById('devicePort').value = device.port;
-            document.getElementById('deviceDescription').value = device.description;
-            document.getElementById('deviceTags').value = device.tags.join(', ');
+        .then(devices => {
+            const device = devices.find(d => d.id === deviceId);
+            if (device) {
+                document.getElementById('deviceName').value = device.name;
+                document.getElementById('deviceIP').value = device.ip;
+                document.getElementById('deviceType').value = device.device_type;
+                document.getElementById('devicePort').value = device.port;
+                document.getElementById('deviceDescription').value = device.description || '';
+                document.getElementById('deviceTags').value = device.tags.join(', ');
+            }
         })
         .catch(error => {
             console.error('Error fetching device data for edit:', error);
@@ -793,17 +1015,174 @@ function deleteDevice(deviceId) {
     });
 }
 
-function testConnection(deviceId) {
+function installAgent(deviceId) {
+    if (!confirm('This will install a monitoring agent on the selected device. Continue?')) return;
+    
     const button = event.target.closest('button');
     const originalContent = button.innerHTML;
-    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i>';
     button.disabled = true;
     
-    setTimeout(() => {
+    fetch(`/api/devices/${deviceId}/install-agent`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Monitoring agent installation started successfully!');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            alert('Error installing agent: ' + data.error);
+            button.innerHTML = originalContent;
+            button.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error installing monitoring agent');
         button.innerHTML = originalContent;
         button.disabled = false;
-        alert('Connection test completed (mock)');
-    }, 2000);
+    });
+}
+
+function viewDeviceDetails(deviceId) {
+    fetch(`/api/device/${deviceId}/metrics`)
+        .then(response => response.json())
+        .then(metrics => {
+            const content = `
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">CPU Usage</div>
+                        <div class="text-2xl font-bold text-white">${metrics.cpu_usage}%</div>
+                    </div>
+                    <div class="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">Memory Usage</div>
+                        <div class="text-2xl font-bold text-white">${metrics.memory_usage}%</div>
+                    </div>
+                    <div class="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">Disk Usage</div>
+                        <div class="text-2xl font-bold text-white">${metrics.disk_usage}%</div>
+                    </div>
+                    <div class="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">Uptime</div>
+                        <div class="text-lg font-bold text-white">${metrics.uptime}</div>
+                    </div>
+                </div>
+                <div class="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                    <div class="text-sm text-gray-400 mb-3">Network Traffic</div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <div class="text-xs text-gray-400">Network In</div>
+                            <div class="text-lg font-medium text-white">${metrics.network_in} MB/s</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-400">Network Out</div>
+                            <div class="text-lg font-medium text-white">${metrics.network_out} MB/s</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('deviceDetailsContent').innerHTML = content;
+            document.getElementById('deviceDetailsModal').style.display = 'flex';
+        })
+        .catch(error => {
+            console.error('Error fetching device details:', error);
+            alert('Error loading device details');
+        });
+}
+
+function closeDeviceDetailsModal() {
+    document.getElementById('deviceDetailsModal').style.display = 'none';
+}
+
+function discoverVMs() {
+    document.getElementById('vmDiscoveryModal').style.display = 'flex';
+}
+
+function closeVmDiscoveryModal() {
+    document.getElementById('vmDiscoveryModal').style.display = 'none';
+    document.getElementById('vmScanResults').style.display = 'none';
+    document.getElementById('vmScanLoading').style.display = 'none';
+}
+
+function scanForVMs() {
+    const loadingDiv = document.getElementById('vmScanLoading');
+    const resultsDiv = document.getElementById('vmScanResults');
+    const listDiv = document.getElementById('discoveredVMsList');
+    
+    loadingDiv.style.display = 'block';
+    resultsDiv.style.display = 'none';
+    
+    fetch('/api/vms/discover', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        loadingDiv.style.display = 'none';
+        
+        if (data.vms && data.vms.length > 0) {
+            listDiv.innerHTML = data.vms.map(vm => `
+                <div class="flex items-center justify-between p-4 border border-gray-600 rounded-lg bg-gray-700">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-3 h-3 rounded-full ${vm.status === 'running' ? 'bg-green-500' : vm.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500'}"></div>
+                            <div class="font-medium text-white">${vm.vm_name}</div>
+                            <span class="px-2 py-1 text-xs bg-gray-600 text-gray-300 rounded">${vm.status}</span>
+                        </div>
+                        <div class="text-sm text-gray-300 space-y-1">
+                            <div><strong>OS:</strong> ${vm.os_type}</div>
+                            <div><strong>Memory:</strong> ${vm.memory}MB | <strong>CPUs:</strong> ${vm.cpus}</div>
+                            ${vm.ip_address ? `<div><strong>IP:</strong> ${vm.ip_address}</div>` : '<div class="text-yellow-400">No IP detected - VM may need to be running</div>'}
+                            <div class="text-xs text-gray-400 mt-1">ID: ${vm.vm_id}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${vm.status === 'running' && vm.ip_address ? 
+                            `<button class="inline-flex items-center gap-2 px-3 py-2 bg-purple-600 text-white border border-purple-600 rounded-lg hover:bg-purple-700 transition-colors" onclick="setupVmMonitoring('${vm.vm_id}', '${vm.vm_name}', '${vm.ip_address}', '${vm.description}')">
+                                <i class="fas fa-plus"></i>
+                                Add to Monitoring
+                            </button>` :
+                            `<button class="inline-flex items-center gap-2 px-3 py-2 bg-gray-600 text-gray-400 border border-gray-600 rounded-lg opacity-50 cursor-not-allowed" disabled>
+                                <i class="fas fa-exclamation-triangle"></i>
+                                ${vm.status !== 'running' ? 'VM Not Running' : 'No IP Address'}
+                            </button>`
+                        }
+                    </div>
+                </div>
+            `).join('');
+            resultsDiv.style.display = 'block';
+        } else {
+            listDiv.innerHTML = '<div class="text-center text-gray-400 py-8">No VirtualBox VMs found or VirtualBox not installed</div>';
+            resultsDiv.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        loadingDiv.style.display = 'none';
+        listDiv.innerHTML = '<div class="text-center text-red-400 py-8">Error scanning for VMs. Make sure VirtualBox is installed and accessible.</div>';
+        resultsDiv.style.display = 'block';
+    });
+}
+
+function setupVmMonitoring(vmId, vmName, ipAddress, description) {
+    closeVmDiscoveryModal();
+    
+    document.getElementById('vmId').value = vmId;
+    document.getElementById('vmName').value = vmName;
+    document.getElementById('vmDisplayName').value = vmName;
+    document.getElementById('vmIPAddress').value = ipAddress;
+    document.getElementById('vmDescription').value = description;
+    document.getElementById('vmTags').value = 'vm,virtualbox';
+    
+    document.getElementById('vmSetupModal').style.display = 'flex';
+}
+
+function closeVmSetupModal() {
+    document.getElementById('vmSetupModal').style.display = 'none';
 }
 
 // Device form submission
@@ -844,156 +1223,6 @@ document.getElementById('deviceForm').addEventListener('submit', function(e) {
         alert('Error saving device');
     });
 });
-
-// Network discovery functions
-function discoverDevices() {
-    document.getElementById('discoveryModal').style.display = 'flex';
-}
-
-function closeDiscoveryModal() {
-    document.getElementById('discoveryModal').style.display = 'none';
-    document.getElementById('discoveryResults').style.display = 'none';
-}
-
-function startDiscovery() {
-    const networkRange = document.getElementById('networkRange').value;
-    const resultsDiv = document.getElementById('discoveryResults');
-    const listDiv = document.getElementById('discoveredDevicesList');
-    
-    resultsDiv.style.display = 'block';
-    listDiv.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Scanning network...</div>';
-    
-    fetch('/api/devices/discover', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ network_range: networkRange })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.devices && data.devices.length > 0) {
-            listDiv.innerHTML = data.devices.map(device => `
-                <div class="flex items-center justify-between p-3 border rounded mb-2">
-                    <div>
-                        <div class="font-medium">${device.hostname}</div>
-                        <div class="text-sm text-muted-foreground">${device.ip} - ${device.device_type}</div>
-                        <div class="text-xs">Ports: ${device.ports.join(', ')}</div>
-                    </div>
-                    <button class="btn btn-primary btn-sm" onclick="addDiscoveredDevice('${device.ip}', '${device.hostname}', '${device.device_type}')">
-                        <i class="fas fa-plus"></i> Add
-                    </button>
-                </div>
-            `).join('');
-        } else {
-            listDiv.innerHTML = '<div class="text-center text-muted-foreground">No new devices discovered</div>';
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        listDiv.innerHTML = '<div class="text-center text-destructive">Error during discovery</div>';
-    });
-}
-
-function addDiscoveredDevice(ip, hostname, deviceType) {
-    closeDiscoveryModal();
-    
-    document.getElementById('deviceName').value = hostname;
-    document.getElementById('deviceIP').value = ip;
-    document.getElementById('deviceType').value = deviceType;
-    
-    showAddDeviceModal();
-}
-
-// VM discovery functions
-function discoverVMs() {
-    document.getElementById('vmDiscoveryModal').style.display = 'flex';
-}
-
-function closeVmDiscoveryModal() {
-    document.getElementById('vmDiscoveryModal').style.display = 'none';
-    document.getElementById('vmScanResults').style.display = 'none';
-    document.getElementById('vmScanLoading').style.display = 'none';
-}
-
-function scanForVMs() {
-    const loadingDiv = document.getElementById('vmScanLoading');
-    const resultsDiv = document.getElementById('vmScanResults');
-    const listDiv = document.getElementById('discoveredVMsList');
-    
-    loadingDiv.style.display = 'block';
-    resultsDiv.style.display = 'none';
-    
-    fetch('/api/vms/discover', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        loadingDiv.style.display = 'none';
-        
-        if (data.vms && data.vms.length > 0) {
-            listDiv.innerHTML = data.vms.map(vm => `
-                <div class="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-3 mb-2">
-                            <div class="w-3 h-3 rounded-full ${vm.status === 'running' ? 'bg-green-500' : vm.status === 'paused' ? 'bg-yellow-500' : 'bg-red-500'}"></div>
-                            <div class="font-medium text-foreground">${vm.vm_name}</div>
-                            <span class="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded">${vm.status}</span>
-                        </div>
-                        <div class="text-sm text-muted-foreground space-y-1">
-                            <div><strong>OS:</strong> ${vm.os_type}</div>
-                            <div><strong>Memory:</strong> ${vm.memory}MB | <strong>CPUs:</strong> ${vm.cpus}</div>
-                            ${vm.ip_address ? `<div><strong>IP:</strong> ${vm.ip_address}</div>` : '<div class="text-yellow-600">No IP detected - VM may need to be running</div>'}
-                            <div class="text-xs text-muted-foreground mt-1">ID: ${vm.vm_id}</div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        ${vm.status === 'running' && vm.ip_address ? 
-                            `<button class="inline-flex items-center gap-2 px-3 py-2 bg-primary text-primary-foreground border border-primary rounded-lg hover:bg-primary/90 transition-colors" onclick="setupVmMonitoring('${vm.vm_id}', '${vm.vm_name}', '${vm.ip_address}', '${vm.description}')">
-                                <i class="fas fa-plus"></i>
-                                Add to Monitoring
-                            </button>` :
-                            `<button class="inline-flex items-center gap-2 px-3 py-2 bg-secondary text-secondary-foreground border border-border rounded-lg opacity-50 cursor-not-allowed" disabled>
-                                <i class="fas fa-exclamation-triangle"></i>
-                                ${vm.status !== 'running' ? 'VM Not Running' : 'No IP Address'}
-                            </button>`
-                        }
-                    </div>
-                </div>
-            `).join('');
-            resultsDiv.style.display = 'block';
-        } else {
-            listDiv.innerHTML = '<div class="text-center text-muted-foreground py-8">No VirtualBox VMs found or VirtualBox not installed</div>';
-            resultsDiv.style.display = 'block';
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        loadingDiv.style.display = 'none';
-        listDiv.innerHTML = '<div class="text-center text-destructive py-8">Error scanning for VMs. Make sure VirtualBox is installed and accessible.</div>';
-        resultsDiv.style.display = 'block';
-    });
-}
-
-function setupVmMonitoring(vmId, vmName, ipAddress, description) {
-    closeVmDiscoveryModal();
-    
-    document.getElementById('vmId').value = vmId;
-    document.getElementById('vmName').value = vmName;
-    document.getElementById('vmDisplayName').value = vmName;
-    document.getElementById('vmIPAddress').value = ipAddress;
-    document.getElementById('vmDescription').value = description;
-    document.getElementById('vmTags').value = 'vm,virtualbox';
-    
-    document.getElementById('vmSetupModal').style.display = 'flex';
-}
-
-function closeVmSetupModal() {
-    document.getElementById('vmSetupModal').style.display = 'none';
-}
 
 // VM setup form submission
 document.getElementById('vmSetupForm').addEventListener('submit', function(e) {
@@ -1061,65 +1290,61 @@ document.getElementById('vmSetupForm').addEventListener('submit', function(e) {
     });
 });
 
-// Search and filter functionality
-document.getElementById('deviceSearch').addEventListener('input', filterDevices);
-document.getElementById('deviceFilter').addEventListener('change', filterDevices);
-
-function filterDevices() {
-    const searchTerm = document.getElementById('deviceSearch').value.toLowerCase();
-    const filterType = document.getElementById('deviceFilter').value;
-    const rows = document.querySelectorAll('#deviceTableBody tr');
-    
-    rows.forEach(row => {
-        const deviceName = row.querySelector('td:nth-child(2) div:first-child').textContent.toLowerCase();
-        const deviceIP = row.querySelector('td:nth-child(3) code').textContent.toLowerCase();
-        const deviceType = row.dataset.deviceType;
-        
-        const matchesSearch = deviceName.includes(searchTerm) || deviceIP.includes(searchTerm);
-        const matchesFilter = !filterType || deviceType === filterType;
-        
-        row.style.display = matchesSearch && matchesFilter ? '' : 'none';
-    });
+// Real-time metric updates for device performance
+function updateDeviceMetrics() {
+    fetch('/api/devices')
+        .then(response => response.json())
+        .then(devices => {
+            devices.forEach(device => {
+                // Update device performance metrics in devices table
+                fetchDeviceMetrics(device.id);
+            });
+        })
+        .catch(error => console.error('Error fetching device status:', error));
 }
 
-// Time range change handler
-document.getElementById('timeRange').addEventListener('change', function() {
-    const timeRange = this.value;
-    updateGrafanaPanels(timeRange);
-});
-
-function updateGrafanaPanels(timeRange) {
-    const iframes = document.querySelectorAll('.grafana-panel');
-    iframes.forEach(iframe => {
-        const url = new URL(iframe.src);
-        url.searchParams.set('from', `now-${timeRange}`);
-        iframe.src = url.toString();
-    });
+function fetchDeviceMetrics(deviceId) {
+    fetch(`/api/device/${deviceId}/metrics`)
+        .then(response => response.json())
+        .then(metrics => {
+            const perfElement = document.querySelector(`.device-performance[data-device-id="${deviceId}"]`);
+            if (perfElement) {
+                perfElement.querySelector('.device-cpu').textContent = metrics.cpu_usage || '--';
+                perfElement.querySelector('.device-memory').textContent = metrics.memory_usage || '--';
+            }
+        })
+        .catch(error => console.error(`Error fetching metrics for device ${deviceId}:`, error));
 }
 
+// Refresh button functionality
 function refreshDashboard() {
-    updateSystemMetrics();
+    updateGaugeCharts();
+    updateTimeSeriesCharts();
     updateDeviceMetrics();
-}
-
-function dismissAlert(alertId) {
-    document.getElementById(alertId).style.display = 'none';
-}
-
-// Cleanup on page unload
-window.addEventListener('beforeunload', function() {
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
+    
+    // Show refresh feedback
+    const refreshBtn = document.querySelector('button[onclick="refreshDashboard()"]');
+    if (refreshBtn) {
+        const originalContent = refreshBtn.innerHTML;
+        refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Refreshing...</span>';
+        setTimeout(() => {
+            refreshBtn.innerHTML = originalContent;
+        }, 1000);
     }
-});
+}
+
+// document.addEventListener('DOMContentLoaded', function() {
+//     initializeGaugeCharts();
+//     initializeTimeSeriesCharts();
+//     startRealTimeUpdates();
+    
+//     // Initial device metrics update
+//     updateDeviceMetrics();
+// });
 
 let charts = {};
 
-document.addEventListener('DOMContentLoaded', function() {
-    initializeGaugeCharts();
-    initializeTimeSeriesCharts();
-    startRealTimeUpdates();
-});
+// Removed duplicate DOMContentLoaded listener, using the one from the top.
 
 function createGaugeChart(canvasId, value, maxValue = 100, color = '#10b981') {
     const canvas = document.getElementById(canvasId);
@@ -1315,7 +1540,7 @@ function toggleSection(sectionId) {
     const content = document.getElementById(sectionId + '-content');
     const icon = document.getElementById(sectionId + '-icon');
     
-    if (content.style.display === 'none') {
+    if (content.style.display === 'none' || content.style.display === '') {
         content.style.display = 'grid';
         icon.style.transform = 'rotate(0deg)';
     } else {
@@ -1357,6 +1582,13 @@ function updateTimeSeriesCharts() {
         }
     });
 }
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+});
 
 </script>
 {% endblock %}

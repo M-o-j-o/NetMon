@@ -64,20 +64,6 @@ def init_db():
         )
     ''')
     
-    cursor.execute('SELECT COUNT(*) FROM devices')
-    if cursor.fetchone()[0] == 0:
-        sample_devices = [
-            ('Ubuntu VM 01', '192.168.56.101', 'vm', 22, 'Ubuntu 22.04 development VM', 'vm,ubuntu,dev', 'user', '', '', 'vm-001', 'Ubuntu-Dev', 'running'),
-            ('Windows VM 01', '192.168.56.102', 'vm', 3389, 'Windows 11 testing VM', 'vm,windows,test', 'administrator', '', '', 'vm-002', 'Windows-Test', 'running'),
-            ('CentOS VM 01', '192.168.56.103', 'vm', 22, 'CentOS 8 production VM', 'vm,centos,prod', 'root', '', '', 'vm-003', 'CentOS-Prod', 'running'),
-            ('Web Server 01', '192.168.1.10', 'server', 22, 'Primary web server', 'web,production', '', '', '', '', '', ''),
-            ('Database Server', '192.168.1.20', 'server', 22, 'Main database server', 'database,production', '', '', '', '', '', ''),
-        ]
-        
-        cursor.executemany('''
-            INSERT INTO devices (name, ip_address, device_type, port, description, tags, username, password, ssh_key_path, vm_id, vm_name, vm_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', sample_devices)
     
     conn.commit()
     conn.close()
@@ -645,6 +631,53 @@ def api_device_metrics(device_id):
         
         conn.close()
         return jsonify(metrics)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/metrics/submit', methods=['POST'])
+def submit_metrics():
+    """Receive metrics from monitoring agents"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'device_id' not in data:
+            return jsonify({'error': 'Missing device_id'}), 400
+        
+        device_id = data['device_id']
+        
+        # Verify device exists
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT id FROM devices WHERE id = ? AND enabled = 1', (device_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'error': 'Device not found or disabled'}), 404
+        
+        # Store metrics
+        cursor.execute('''
+            INSERT OR REPLACE INTO device_metrics 
+            (device_id, status, response_time, cpu_usage, memory_usage, disk_usage, 
+             network_in, network_out, uptime, load_average, last_seen)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ''', (
+            device_id,
+            data.get('status', 'unknown'),
+            data.get('response_time', 0),
+            data.get('cpu_usage', 0),
+            data.get('memory_usage', 0),
+            data.get('disk_usage', 0),
+            data.get('network_bytes_recv', 0),
+            data.get('network_bytes_sent', 0),
+            data.get('uptime', ''),
+            data.get('load_average', 0)
+        ))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Metrics received'}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
