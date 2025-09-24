@@ -101,7 +101,7 @@ function Install-Agent {
     $config | Out-File "$InstallDir\config.json" -Encoding UTF8
     
     # Create wrapper script for service
-    $wrapperScript = @"
+    $wrapperScript = @'
 import sys
 import os
 import json
@@ -123,7 +123,7 @@ agent = WindowsMonitoringAgent(
 )
 
 agent.run()
-"@
+'@
     
     $wrapperScript | Out-File "$InstallDir\service_wrapper.py" -Encoding UTF8
 }
@@ -132,7 +132,7 @@ function Install-Service {
     Write-Status "Installing Windows service..."
     
     # Create service installation script
-    $serviceScript = @"
+    $serviceScript = @'
 import win32serviceutil
 import win32service
 import win32event
@@ -144,8 +144,8 @@ import subprocess
 import time
 
 class NetMonitorService(win32serviceutil.ServiceFramework):
-    _svc_name_ = "$ServiceName"
-    _svc_display_name_ = "$ServiceDisplayName"
+    _svc_name_ = "{0}"
+    _svc_display_name_ = "{1}"
     _svc_description_ = "Collects system metrics and sends them to the network monitoring dashboard"
     
     def __init__(self, args):
@@ -170,7 +170,7 @@ class NetMonitorService(win32serviceutil.ServiceFramework):
         while True:
             try:
                 # Run the monitoring agent
-                script_path = os.path.join(r"$InstallDir", "service_wrapper.py")
+                script_path = os.path.join(r"{2}", "service_wrapper.py")
                 self.process = subprocess.Popen([sys.executable, script_path])
                 
                 # Wait for stop event or process to finish
@@ -188,7 +188,7 @@ class NetMonitorService(win32serviceutil.ServiceFramework):
 
 if __name__ == '__main__':
     win32serviceutil.HandleCommandLine(NetMonitorService)
-"@
+'@ -f $ServiceName, $ServiceDisplayName, $InstallDir
     
     $serviceScript | Out-File "$InstallDir\service.py" -Encoding UTF8
     
@@ -203,7 +203,7 @@ if __name__ == '__main__':
     }
 }
 
-function Start-Service {
+function Start-AgentService {
     Write-Status "Starting monitoring agent service..."
     
     try {
@@ -229,7 +229,7 @@ function Start-Service {
 
 function Show-Usage {
     Write-Host ""
-    Write-Host "Usage: .\install_windows_agent.ps1 -DashboardUrl <url> -DeviceId <id> [-ApiKey <key>]"
+    Write-Host "Usage: .\install_windows_agent.ps1 -DashboardUrl 'url' -DeviceId 'id' [-ApiKey 'key']"
     Write-Host ""
     Write-Host "Examples:"
     Write-Host "  .\install_windows_agent.ps1 -DashboardUrl http://192.168.1.100:5000 -DeviceId 1"
@@ -258,7 +258,7 @@ try {
     Create-Directories
     Install-Agent
     Install-Service
-    Start-Service
+    Start-AgentService
     
     Write-Status ""
     Write-Status "✓ Installation completed successfully!"
